@@ -9,9 +9,39 @@ permissions:
   contents: read
 
 jobs:
-  smoke:
+  deploy:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
+    env:
+      AWS_REGION: us-east-1
+      TF_IN_AUTOMATION: true
     steps:
       - uses: actions/checkout@v4
-      - name: Say hello
-        run: echo "Workflow syntax is good ✅"
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::476488972684:role/GitHubCdkDeployRole
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.9.5
+
+      - name: Terraform Init
+        working-directory: infra
+        run: terraform init -input=false
+
+      - name: Terraform Plan
+        working-directory: infra
+        run: terraform plan -input=false -out=tfplan \
+          -var="aws_region=${AWS_REGION}" \
+          -var="environment=dev"
+
+      - name: Terraform Apply
+        if: github.ref == 'refs/heads/main'
+        working-directory: infra
+        run: terraform apply -auto-approve tfplan
