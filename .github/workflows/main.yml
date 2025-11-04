@@ -31,20 +31,17 @@ jobs:
           terraform_version: 1.9.5
 
       - name: Terraform Init
-        working-directory: infra
-        run: terraform init -input=false
+        run: terraform -chdir=infra init -input=false
 
       - name: Terraform Plan
-        working-directory: infra
-        run: terraform plan -input=false -out=tfplan \
-          -var="aws_region=${AWS_REGION}" \
+        run: |
+          terraform -chdir=infra plan -input=false -out=tfplan \
+          -var="aws_region=${{ env.AWS_REGION }}" \
           -var="environment=dev"
 
       - name: Terraform Apply (main only)
         if: github.ref == 'refs/heads/main'
-        working-directory: infra
-        run: terraform apply -auto-approve tfplan
-
+        run: terraform -chdir=infra apply -auto-approve tfplan
 
       - name: Who am I?
         run: aws sts get-caller-identity
