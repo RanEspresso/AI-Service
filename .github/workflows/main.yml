@@ -1,0 +1,15 @@
+permissions:
+  id-token: write
+  contents: read
+
+steps:
+  - uses: actions/checkout@v4
+
+  - name: Configure AWS creds via OIDC
+    uses: aws-actions/configure-aws-credentials@v4
+    with:
+      role-to-assume: arn:aws:iam::476488972684:role/GitHubCdkDeployRole
+      aws-region: us-east-1
+
+  - name: Who am I?
+    run: aws sts get-caller-identity
