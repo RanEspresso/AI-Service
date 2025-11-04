@@ -1,0 +1,14 @@
+{
+  "name": "hello-protocol-handler",
+  "version": "1.0.0",
+  "private": true,
+  "type": "commonjs",
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "mongodb": "^6.8.0",
+    "@aws-sdk/client-secrets-manager": "^3.671.0",
+    "uuid": "^9.0.1"
+  }
+}

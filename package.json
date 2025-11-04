@@ -1,0 +1,8 @@
+{
+  "name": "aws-hello-protocol",
+  "private": true,
+  "workspaces": [
+    "lambdas/http",
+    "lambdas/sqs"
+  ]
+}
