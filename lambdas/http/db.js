@@ -1,10 +1,17 @@
 const { MongoClient } = require("mongodb");
 const { SecretsManagerClient, GetSecretValueCommand } = require("@aws-sdk/client-secrets-manager");
+const fs = require("fs");
 
 let client = null;
 let uri = null;
 
 async function getMongoUri() {
+  // 1) Local dev: if MONGODB_URI is set, prefer it (no AWS calls, no TLS)
+  if (process.env.MONGODB_URI) {
+    return process.env.MONGODB_URI;
+  }
+
+  // 2) AWS path: read URI from Secrets Manager
   if (uri) return uri;
   const secretName = process.env.MONGODB_SECRET_NAME;
   if (!secretName) throw new Error("MONGODB_SECRET_NAME not set");
@@ -15,10 +22,23 @@ async function getMongoUri() {
   return uri;
 }
 
+function buildMongoOptions() {
+  // Local dev: if using MONGODB_URI (likely localhost), no TLS
+  if (process.env.MONGODB_URI) {
+    return { retryWrites: false };
+  }
+  // AWS: TLS to DocDB (accept CA bundle if present)
+  const caPath = `${__dirname}/rds-combined-ca-bundle.pem`;
+  if (fs.existsSync(caPath)) {
+    return { tls: true, tlsCAFile: caPath, retryWrites: false };
+  }
+  return { tls: true, retryWrites: false, tlsAllowInvalidHostnames: true }; // dev fallback
+}
+
 async function getCollection() {
   const mongoUri = await getMongoUri();
   if (!client) {
-    client = new MongoClient(mongoUri, { maxPoolSize: 5 });
+    client = new MongoClient(mongoUri, buildMongoOptions());
     await client.connect();
   }
   const dbName = process.env.MONGODB_DB || "app";
@@ -26,3 +46,5 @@ async function getCollection() {
 }
 
 module.exports = { getCollection };
+
+//MONGODB_URI=mongodb://localhost:27017/app

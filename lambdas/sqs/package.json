@@ -1,5 +1,5 @@
 {
-  "name": "hello-protocol-handler",
+  "name": "hello-protocol-sqs",
   "version": "1.0.0",
   "private": true,
   "type": "commonjs",

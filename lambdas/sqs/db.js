@@ -1,5 +1,6 @@
 const { MongoClient } = require("mongodb");
 const { SecretsManagerClient, GetSecretValueCommand } = require("@aws-sdk/client-secrets-manager");
+const fs = require("fs");
 
 let client = null;
 let uri = null;
@@ -15,10 +16,18 @@ async function getMongoUri() {
   return uri;
 }
 
+function buildMongoOptions() {
+  const caPath = `${__dirname}/rds-combined-ca-bundle.pem`;
+  if (fs.existsSync(caPath)) {
+    return { tls: true, tlsCAFile: caPath, retryWrites: false };
+  }
+  return { tls: true, retryWrites: false, tlsAllowInvalidHostnames: true };
+}
+
 async function getCollection() {
   const mongoUri = await getMongoUri();
   if (!client) {
-    client = new MongoClient(mongoUri, { maxPoolSize: 5 });
+    client = new MongoClient(mongoUri, buildMongoOptions());
     await client.connect();
   }
   const dbName = process.env.MONGODB_DB || "app";

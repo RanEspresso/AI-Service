@@ -9,11 +9,10 @@ data "aws_iam_policy_document" "lambda_assume" {
   }
 }
 
-# Base execution role (logs)
 resource "aws_iam_role" "lambda_base_role" {
   name               = "${local.name_prefix}-lambda-role"
   assume_role_policy = data.aws_iam_policy_document.lambda_assume.json
-  tags = local.base_tags
+  tags               = local.base_tags
 }
 
 resource "aws_iam_role_policy_attachment" "basic" {
@@ -21,7 +20,6 @@ resource "aws_iam_role_policy_attachment" "basic" {
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
 }
 
-# SecretsManager read policy (scoped to the MongoDB secret)
 data "aws_iam_policy_document" "secrets_read" {
   statement {
     effect = "Allow"
@@ -29,7 +27,7 @@ data "aws_iam_policy_document" "secrets_read" {
       "secretsmanager:GetSecretValue",
       "secretsmanager:DescribeSecret"
     ]
-    resources = [data.aws_secretsmanager_secret.mongodb.arn]
+    resources = [aws_secretsmanager_secret.mongo_uri.arn]
   }
 }
 
@@ -43,7 +41,6 @@ resource "aws_iam_role_policy_attachment" "secrets_read_attach" {
   policy_arn = aws_iam_policy.secrets_read.arn
 }
 
-# Extra permissions for SQS consumer (receive/delete)
 data "aws_iam_policy_document" "sqs_consume" {
   statement {
     effect = "Allow"
@@ -62,4 +59,15 @@ data "aws_iam_policy_document" "sqs_consume" {
 resource "aws_iam_policy" "sqs_consume" {
   name   = "${local.name_prefix}-sqs-consume"
   policy = data.aws_iam_policy_document.sqs_consume.json
+}
+
+resource "aws_iam_role_policy_attachment" "sqs_consume_attach" {
+  role       = aws_iam_role.lambda_base_role.name
+  policy_arn = aws_iam_policy.sqs_consume.arn
+}
+
+# Allow Lambda to create/manage ENIs in VPC
+resource "aws_iam_role_policy_attachment" "lambda_vpc_access" {
+  role       = aws_iam_role.lambda_base_role.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole"
 }

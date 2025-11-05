@@ -1,4 +1,3 @@
-# HTTP API + route + Lambda integration
 resource "aws_apigatewayv2_api" "http_api" {
   name          = "${local.name_prefix}-http-api"
   protocol_type = "HTTP"

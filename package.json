@@ -1,5 +1,5 @@
 {
-  "name": "aws-hello-protocol",
+  "name": "aws-hello-protocol-docdb-fixed",
   "private": true,
   "workspaces": [
     "lambdas/http",

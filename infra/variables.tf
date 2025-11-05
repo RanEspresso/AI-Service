@@ -1,42 +1,44 @@
 variable "aws_region" {
-  type        = string
-  default     = "us-east-1"
-  description = "AWS region"
+  type    = string
+  default = "us-east-1"
 }
 
 variable "project" {
-  type        = string
-  default     = "hello-protocol"
+  type    = string
+  default = "hello-protocol"
 }
 
 variable "environment" {
-  type        = string
-  default     = "dev"
-}
-
-variable "mongodb_secret_name" {
-  type        = string
-  default     = "hello-protocol/mongodb-uri"
-  description = "Secrets Manager secret name that stores the MongoDB connection string"
+  type    = string
+  default = "dev"
 }
 
 variable "mongodb_db" {
-  type        = string
-  default     = "app"
-  description = "MongoDB database name"
+  type    = string
+  default = "app"
+}
+
+variable "docdb_shard_capacity" {
+  type    = number
+  default = 2
+}
+
+variable "docdb_shard_count" {
+  type    = number
+  default = 1
 }
 
 variable "log_retention_days" {
-  type        = number
-  default     = 14
+  type    = number
+  default = 14
 }
 
 variable "lambda_memory_mb" {
-  type        = number
-  default     = 256
+  type    = number
+  default = 256
 }
 
 variable "tags" {
-  type        = map(string)
-  default     = {}
+  type    = map(string)
+  default = {}
 }

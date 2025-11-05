@@ -11,11 +11,7 @@ exports.handler = async (event) => {
       const protocolId = String(body.protocolId || "").trim();
       const message = String(body.message || "").trim();
       if (!protocolId || !message) throw new Error("Bad message");
-      await col.insertOne({
-        _id: uuid(),
-        protocolId, message, source: "sqs",
-        receivedAt: new Date().toISOString()
-      });
+      await col.insertOne({ _id: uuid(), protocolId, message, source: "sqs", receivedAt: new Date().toISOString() });
     } catch (e) {
       console.error("Failed for", r.messageId, e);
       failures.push({ itemIdentifier: r.messageId });

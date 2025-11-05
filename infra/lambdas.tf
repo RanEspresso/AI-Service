@@ -1,22 +1,22 @@
-# Build lambdas: run npm ci before zipping using null_resource + archive_file
-
-# ---- HTTP LAMBDA ----
 resource "null_resource" "http_npm_ci" {
   triggers = {
+    # re-run if package.json changes
     hash = filesha256("${path.module}/../lambdas/http/package.json")
   }
+
   provisioner "local-exec" {
     working_dir = "${path.module}/../lambdas/http"
-    command     = "npm ci"
+    command     = "npm install --workspaces=false --omit=dev --no-audit --no-fund"
   }
+
 }
+
 
 data "archive_file" "http_zip" {
   type        = "zip"
   source_dir  = "${path.module}/../lambdas/http"
   output_path = "${path.module}/build/http.zip"
-
-  depends_on = [null_resource.http_npm_ci]
+  depends_on  = [null_resource.http_npm_ci]
 }
 
 resource "aws_lambda_function" "http" {
@@ -30,10 +30,15 @@ resource "aws_lambda_function" "http" {
 
   environment {
     variables = {
-      NODE_OPTIONS          = "--enable-source-maps"
-      MONGODB_SECRET_NAME   = var.mongodb_secret_name
-      MONGODB_DB            = var.mongodb_db
+      NODE_OPTIONS        = "--enable-source-maps"
+      MONGODB_SECRET_NAME = aws_secretsmanager_secret.mongo_uri.name
+      MONGODB_DB          = var.mongodb_db
     }
+  }
+
+  vpc_config {
+    subnet_ids         = [aws_subnet.private_a.id, aws_subnet.private_b.id]
+    security_group_ids = [aws_security_group.lambda.id]
   }
 
   tags = local.base_tags
@@ -45,7 +50,6 @@ resource "aws_cloudwatch_log_group" "http" {
   tags              = local.base_tags
 }
 
-# API route -> Lambda
 resource "aws_apigatewayv2_integration" "http_lambda" {
   api_id                 = aws_apigatewayv2_api.http_api.id
   integration_type       = "AWS_PROXY"
@@ -68,14 +72,15 @@ resource "aws_lambda_permission" "apigw_invoke_http" {
   source_arn    = "${aws_apigatewayv2_api.http_api.execution_arn}/*/*"
 }
 
-# ---- SQS LAMBDA ----
 resource "null_resource" "sqs_npm_ci" {
   triggers = {
+    # re-run if package.json changes
     hash = filesha256("${path.module}/../lambdas/sqs/package.json")
   }
+
   provisioner "local-exec" {
     working_dir = "${path.module}/../lambdas/sqs"
-    command     = "npm ci"
+    command     = "npm install --workspaces=false --omit=dev --no-audit --no-fund"
   }
 }
 
@@ -83,8 +88,7 @@ data "archive_file" "sqs_zip" {
   type        = "zip"
   source_dir  = "${path.module}/../lambdas/sqs"
   output_path = "${path.module}/build/sqs.zip"
-
-  depends_on = [null_resource.sqs_npm_ci]
+  depends_on  = [null_resource.sqs_npm_ci]
 }
 
 resource "aws_lambda_function" "sqs" {
@@ -98,10 +102,15 @@ resource "aws_lambda_function" "sqs" {
 
   environment {
     variables = {
-      NODE_OPTIONS          = "--enable-source-maps"
-      MONGODB_SECRET_NAME   = var.mongodb_secret_name
-      MONGODB_DB            = var.mongodb_db
+      NODE_OPTIONS        = "--enable-source-maps"
+      MONGODB_SECRET_NAME = aws_secretsmanager_secret.mongo_uri.name
+      MONGODB_DB          = var.mongodb_db
     }
+  }
+
+  vpc_config {
+    subnet_ids         = [aws_subnet.private_a.id, aws_subnet.private_b.id]
+    security_group_ids = [aws_security_group.lambda.id]
   }
 
   tags = local.base_tags
@@ -113,16 +122,9 @@ resource "aws_cloudwatch_log_group" "sqs" {
   tags              = local.base_tags
 }
 
-# Grant SQS consume to the SQS lambda role
-resource "aws_iam_role_policy_attachment" "sqs_consume_attach" {
-  role       = aws_iam_role.lambda_base_role.name
-  policy_arn = aws_iam_policy.sqs_consume.arn
-}
-
-# Event source mapping from SQS queue to Lambda
 resource "aws_lambda_event_source_mapping" "sqs_mapping" {
-  event_source_arn  = aws_sqs_queue.protocol.arn
-  function_name     = aws_lambda_function.sqs.arn
-  batch_size        = 10
+  event_source_arn        = aws_sqs_queue.protocol.arn
+  function_name           = aws_lambda_function.sqs.arn
+  batch_size              = 10
   function_response_types = ["ReportBatchItemFailures"]
 }
