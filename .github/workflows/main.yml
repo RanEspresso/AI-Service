@@ -1,0 +1,72 @@
+name: Terraform Deploy
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+# OIDC requires this
+permissions:
+  id-token: write
+  contents: read
+
+# Prevent overlapping deploys to the same branch
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  AWS_REGION: us-east-1
+  TF_IN_AUTOMATION: true
+  TF_INPUT: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # OIDC → assume your deploy role in AWS
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::476488972684:role/GitHubCdkDeployRole
+          aws-region: ${{ env.AWS_REGION }}
+
+      # Node is required because Terraform runs `npm ci` inside the lambdas
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.9.5
+
+      - name: Terraform Init
+        run: terraform -chdir=infra init -input=false
+
+      - name: Terraform Validate
+        run: terraform -chdir=infra validate
+
+      - name: Terraform Plan
+        run: |
+          terraform -chdir=infra plan -input=false -out=tfplan \
+            -var="aws_region=${{ env.AWS_REGION }}" \
+            -var="environment=dev"
+
+      # Only auto-apply on main pushes. Manual runs (workflow_dispatch) also apply.
+      - name: Terraform Apply
+        if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
+        run: terraform -chdir=infra apply -auto-approve tfplan
+
+      # Optional: print useful outputs to logs
+      - name: Show outputs
+        if: always()
+        run: |
+          echo "HTTP API URL: $(terraform -chdir=infra output -raw http_api_invoke_url || true)"
+          echo "Protocol Queue URL: $(terraform -chdir=infra output -raw protocol_queue_url || true)"
+          
